@@ -35,7 +35,7 @@ def index():
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == "POST":
-        email = request.form.get("email")
+        email = request.form.get("email").lower().strip()
         password = request.form.get("password")
 
         user = User.query.filter_by(email=email).first()
@@ -43,8 +43,8 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             return redirect(url_for('main.discover'))
-        else:
-            flash("Invalid credentials", "error")
+
+        flash("Invalid credentials", "error")
 
     return render_template("login.html")
 
@@ -52,7 +52,7 @@ def login():
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == "POST":
-        email = request.form.get("email")
+        email = request.form.get("email").lower().strip()
         password = request.form.get("password")
 
         if User.query.filter_by(email=email).first():
@@ -61,6 +61,7 @@ def register():
 
         user = User(email=email)
         user.set_password(password)
+
         db.session.add(user)
         db.session.commit()
 
@@ -139,9 +140,15 @@ def edit_profile():
 @main.route('/discover')
 @login_required
 def discover():
+
+    # Exclude self
     users = User.query.join(Profile).filter(
         User.id != current_user.id
     ).all()
+
+    # Remove already liked users
+    liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
+    users = [u for u in users if u.id not in liked_ids]
 
     return render_template('discover.html', users=users)
 
@@ -150,9 +157,10 @@ def discover():
 # VIEW USER
 # =====================================================
 
-@main.route('/user/<user_id>')
+@main.route('/user/<int:user_id>')
 @login_required
 def view_user(user_id):
+
     user = User.query.get_or_404(user_id)
 
     interests = []
@@ -162,20 +170,35 @@ def view_user(user_id):
         except:
             interests = []
 
+    # Check mutual like
+    liked_back = Like.query.filter_by(
+        liker_id=user_id,
+        liked_id=current_user.id
+    ).first()
+
+    has_liked = Like.query.filter_by(
+        liker_id=current_user.id,
+        liked_id=user_id
+    ).first()
+
+    is_match = False
+    if liked_back and has_liked:
+        is_match = True
+
     return render_template(
         'view_user.html',
         user=user,
         interests=interests,
-        is_match=False,
-        has_liked=False
+        is_match=is_match,
+        has_liked=bool(has_liked)
     )
 
 
 # =====================================================
-# LIKE
+# LIKE (REAL MATCH LOGIC)
 # =====================================================
 
-@main.route('/like/<user_id>', methods=['POST'])
+@main.route('/like/<int:user_id>', methods=['POST'])
 @login_required
 def like_user(user_id):
 
@@ -185,17 +208,39 @@ def like_user(user_id):
     if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
         return jsonify({'error': 'Already liked'}), 400
 
-    db.session.add(Like(liker_id=current_user.id, liked_id=user_id))
+    new_like = Like(liker_id=current_user.id, liked_id=user_id)
+    db.session.add(new_like)
+
+    # Check if other user liked back
+    liked_back = Like.query.filter_by(
+        liker_id=user_id,
+        liked_id=current_user.id
+    ).first()
+
+    is_match = False
+
+    if liked_back:
+        match = Match(
+            user1_id=current_user.id,
+            user2_id=user_id,
+            matched_at=datetime.utcnow()
+        )
+        db.session.add(match)
+        is_match = True
+
     db.session.commit()
 
-    return jsonify({"success": True, "is_match": False})
+    return jsonify({
+        "success": True,
+        "is_match": is_match
+    })
 
 
 # =====================================================
 # PASS
 # =====================================================
 
-@main.route('/pass/<user_id>', methods=['POST'])
+@main.route('/pass/<int:user_id>', methods=['POST'])
 @login_required
 def pass_user(user_id):
     return jsonify({"success": True})
@@ -208,7 +253,13 @@ def pass_user(user_id):
 @main.route('/matches')
 @login_required
 def matches():
-    return render_template('matches.html')
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user.id) |
+        (Match.user2_id == current_user.id)
+    ).all()
+
+    return render_template('matches.html', matches=matches)
 
 
 # =====================================================
@@ -222,10 +273,15 @@ def messages():
 
 
 # =====================================================
-# UNREAD COUNT (Prevents JS Crash)
+# UNREAD COUNT
 # =====================================================
 
 @main.route('/messages/unread-count')
 @login_required
 def unread_count():
-    return jsonify({"count": 0})
+    count = Message.query.filter_by(
+        receiver_id=current_user.id,
+        is_read=False
+    ).count()
+
+    return jsonify({"count": count})

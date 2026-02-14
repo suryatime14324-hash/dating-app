@@ -5,6 +5,7 @@
 {% block content %}
 <div class="discover-container">
     <h1>Discover</h1>
+    <p class="discover-subtitle">Find people around you</p>
 
     {% if users %}
         <div class="profiles-grid">
@@ -19,36 +20,105 @@
                                 <i class="fas fa-user"></i>
                             </div>
                         {% endif %}
+                        <div class="profile-card-overlay">
+                            <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
+                            {% if user.profile.city %}
+                                <p>{{ user.profile.city }}</p>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
-
                     <div class="profile-card-actions">
-                        <button onclick="passUser('{{ user.id }}')">❌</button>
-                        <a href="{{ url_for('main.view_user', user_id=user.id) }}">👁</a>
-                        <button onclick="likeUser('{{ user.id }}')">❤️</button>
+                        <button class="btn-action btn-pass"
+                                onclick="handlePass('{{ user.id }}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+
+                        <a href="{{ url_for('main.view_user', user_id=user.id) }}"
+                           class="btn-action btn-view">
+                            <i class="fas fa-eye"></i>
+                        </a>
+
+                        <button class="btn-action btn-like"
+                                onclick="handleLike('{{ user.id }}')">
+                            <i class="fas fa-heart"></i>
+                        </button>
                     </div>
 
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <p>No more users</p>
+        <div class="empty-state">
+            <i class="fas fa-users"></i>
+            <h2>No more users</h2>
+            <p>Check back later for new matches</p>
+        </div>
     {% endif %}
+</div>
+
+<!-- MATCH MODAL -->
+<div id="matchModal" class="modal">
+    <div class="modal-content match-modal">
+        <div class="match-animation">
+            <i class="fas fa-heart"></i>
+        </div>
+        <h2>It's a Match! 🎉</h2>
+        <p>You both liked each other</p>
+        <div class="match-actions">
+            <button class="btn btn-primary" onclick="closeMatchModal()">Keep Swiping</button>
+            <a href="{{ url_for('main.matches') }}" class="btn btn-secondary">Go to Matches</a>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
+
 {% block scripts %}
 <script>
-function likeUser(userId) {
-    fetch(`/like/${userId}`, { method: 'POST' })
-    .then(res => res.json())
-    .then(() => location.reload());
+function removeCard(userId) {
+    const card = document.querySelector(`[data-user-id="${userId}"]`);
+    if (!card) return;
+
+    card.style.transform = "scale(0.9)";
+    card.style.opacity = "0";
+
+    setTimeout(() => {
+        card.remove();
+
+        if (document.querySelectorAll('.profile-card').length === 0) {
+            location.reload();
+        }
+    }, 300);
 }
 
-function passUser(userId) {
+function handleLike(userId) {
+    fetch(`/like/${userId}`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                removeCard(userId);
+
+                if (data.is_match) {
+                    showMatchModal();
+                }
+            }
+        });
+}
+
+function handlePass(userId) {
     fetch(`/pass/${userId}`, { method: 'POST' })
-    .then(() => location.reload());
+        .then(() => {
+            removeCard(userId);
+        });
+}
+
+function showMatchModal() {
+    document.getElementById('matchModal').style.display = "flex";
+}
+
+function closeMatchModal() {
+    document.getElementById('matchModal').style.display = "none";
 }
 </script>
 {% endblock %}
