@@ -191,7 +191,7 @@ def edit_profile():
 
 
 # =====================================================
-# VIEW USER PROFILE (🔥 THIS WAS MISSING)
+# VIEW USER
 # =====================================================
 
 @main.route('/user/<user_id>')
@@ -215,7 +215,7 @@ def view_user(user_id):
 
 
 # =====================================================
-# DISCOVER (🔥 FIXED — SEND REAL USERS)
+# DISCOVER
 # =====================================================
 
 @main.route('/discover')

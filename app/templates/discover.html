@@ -6,12 +6,12 @@
 <div class="discover-container">
     <h1>Discover</h1>
     <p class="discover-subtitle">Find your perfect match</p>
-    
+
     {% if users %}
         <div class="profiles-grid">
             {% for user in users %}
                 <div class="profile-card" data-user-id="{{ user.id }}">
-                    
+
                     <div class="profile-card-image">
                         {% if user.profile and user.profile.photo1 %}
                             <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}">
@@ -28,32 +28,25 @@
                             {% endif %}
                         </div>
                     </div>
-                    
+
                     <div class="profile-card-info">
 
                         {% if user.profile.occupation %}
                             <p class="occupation">
-                                <i class="fas fa-briefcase"></i> 
+                                <i class="fas fa-briefcase"></i>
                                 {{ user.profile.occupation }}
                             </p>
                         {% endif %}
-                        
+
                         {% if user.profile.bio %}
                             <p class="bio">
                                 {{ user.profile.bio[:100] }}
                                 {% if user.profile.bio|length > 100 %}...{% endif %}
                             </p>
                         {% endif %}
-                        
-                        {% if user.profile.interests %}
-                            <div class="interests-preview">
-                                {% for interest in user.profile.interests | default('[]') | safe %}
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        
+
                     </div>
-                    
+
                     <div class="profile-card-actions">
                         <button class="btn-action btn-pass" onclick="passUser('{{ user.id }}')">
                             <i class="fas fa-times"></i>
@@ -74,10 +67,8 @@
 
     {% else %}
         <div class="empty-state">
-            <i class="fas fa-search"></i>
             <h2>No more profiles</h2>
-            <p>Check back later for more matches!</p>
-            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">View Your Matches</a>
+            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">View Matches</a>
         </div>
     {% endif %}
 </div>
