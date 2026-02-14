@@ -9,36 +9,49 @@
     
     {% if users %}
         <div class="profiles-grid">
-            {% for user in users %}
+            {% for item in users %}
+                {% set user = item.user %}
+                {% set interests = item.interests %}
+
                 <div class="profile-card" data-user-id="{{ user.id }}">
                     <div class="profile-card-image">
-                        {% if user.profile.photo1 %}
+                        {% if user.profile and user.profile.photo1 %}
                             <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}">
                         {% else %}
                             <div class="profile-photo-placeholder">
                                 <i class="fas fa-user"></i>
                             </div>
                         {% endif %}
+
                         <div class="profile-card-overlay">
                             <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
                             {% if user.profile.city %}
-                                <p><i class="fas fa-map-marker-alt"></i> {{ user.profile.city }}</p>
+                                <p>
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    {{ user.profile.city }}
+                                </p>
                             {% endif %}
                         </div>
                     </div>
                     
                     <div class="profile-card-info">
                         {% if user.profile.occupation %}
-                            <p class="occupation"><i class="fas fa-briefcase"></i> {{ user.profile.occupation }}</p>
+                            <p class="occupation">
+                                <i class="fas fa-briefcase"></i>
+                                {{ user.profile.occupation }}
+                            </p>
                         {% endif %}
                         
                         {% if user.profile.bio %}
-                            <p class="bio">{{ user.profile.bio[:100] }}{% if user.profile.bio|length > 100 %}...{% endif %}</p>
+                            <p class="bio">
+                                {{ user.profile.bio[:100] }}
+                                {% if user.profile.bio|length > 100 %}...{% endif %}
+                            </p>
                         {% endif %}
                         
-                        {% if user.profile.interests %}
+                        {% if interests %}
                             <div class="interests-preview">
-                                {% for interest in user.profile.interests|fromjson %}
+                                {% for interest in interests %}
                                     <span class="tag tag-small">{{ interest }}</span>
                                 {% endfor %}
                             </div>
@@ -49,9 +62,11 @@
                         <button class="btn-action btn-pass" onclick="passUser('{{ user.id }}')">
                             <i class="fas fa-times"></i>
                         </button>
+
                         <a href="{{ url_for('main.view_user', user_id=user.id) }}" class="btn-action btn-view">
                             <i class="fas fa-eye"></i>
                         </a>
+
                         <button class="btn-action btn-like" onclick="likeUser('{{ user.id }}')">
                             <i class="fas fa-heart"></i>
                         </button>
@@ -64,7 +79,9 @@
             <i class="fas fa-search"></i>
             <h2>No more profiles</h2>
             <p>Check back later for more matches!</p>
-            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">View Your Matches</a>
+            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">
+                View Your Matches
+            </a>
         </div>
     {% endif %}
 </div>
@@ -76,83 +93,12 @@
             <i class="fas fa-heart"></i>
         </div>
         <h2>It's a Match!</h2>
-        <p>You and <span id="matchName"></span> liked each other!</p>
+        <p>You both liked each other!</p>
         <div class="match-actions">
-            <a href="#" id="messageLink" class="btn btn-primary">Send Message</a>
-            <button onclick="closeMatchModal()" class="btn btn-secondary">Keep Swiping</button>
+            <button onclick="closeMatchModal()" class="btn btn-secondary">
+                Keep Swiping
+            </button>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-function likeUser(userId) {
-    fetch(`/like/${userId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Remove card
-            const card = document.querySelector(`[data-user-id="${userId}"]`);
-            card.style.transform = 'translateX(100px) rotate(10deg)';
-            card.style.opacity = '0';
-            setTimeout(() => card.remove(), 300);
-            
-            // Show match modal if it's a match
-            if (data.is_match) {
-                showMatchModal(data.message);
-            }
-            
-            // Check if no more cards
-            setTimeout(() => {
-                if (document.querySelectorAll('.profile-card').length === 0) {
-                    location.reload();
-                }
-            }, 500);
-        }
-    });
-}
-
-function passUser(userId) {
-    fetch(`/pass/${userId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(() => {
-        const card = document.querySelector(`[data-user-id="${userId}"]`);
-        card.style.transform = 'translateX(-100px) rotate(-10deg)';
-        card.style.opacity = '0';
-        setTimeout(() => card.remove(), 300);
-        
-        setTimeout(() => {
-            if (document.querySelectorAll('.profile-card').length === 0) {
-                location.reload();
-            }
-        }, 500);
-    });
-}
-
-function showMatchModal(message) {
-    document.getElementById('matchModal').style.display = 'flex';
-}
-
-function closeMatchModal() {
-    document.getElementById('matchModal').style.display = 'none';
-}
-
-// Close modal on outside click
-window.onclick = function(event) {
-    const modal = document.getElementById('matchModal');
-    if (event.target === modal) {
-        modal.style.display = 'none';
-    }
-}
-</script>
 {% endblock %}
