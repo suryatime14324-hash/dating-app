@@ -1,16 +1,17 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 
+from app.models import db, User   # ✅ import db from models (IMPORTANT)
+
 load_dotenv()
 
-db = SQLAlchemy()
 login_manager = LoginManager()
 migrate = Migrate()
+
 
 def create_app():
     app = Flask(__name__)
@@ -39,14 +40,16 @@ def create_app():
     login_manager.login_view = 'main.login'
     login_manager.login_message_category = 'info'
 
-    # 🔥 ADD THIS USER LOADER (VERY IMPORTANT)
-    from app.models import User
-
+    # ✅ Correct user loader (UUID STRING, NOT INT)
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return User.query.get(user_id)
 
     from app.routes import main
     app.register_blueprint(main)
+
+    # ✅ CREATE TABLES IF THEY DON'T EXIST
+    with app.app_context():
+        db.create_all()
 
     return app
