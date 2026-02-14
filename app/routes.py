@@ -191,7 +191,31 @@ def edit_profile():
 
 
 # =====================================================
-# DISCOVER
+# VIEW USER PROFILE (🔥 THIS WAS MISSING)
+# =====================================================
+
+@main.route('/user/<user_id>')
+@login_required
+def view_user(user_id):
+
+    user = User.query.get_or_404(user_id)
+
+    interests = []
+    try:
+        if user.profile and user.profile.interests:
+            interests = json.loads(user.profile.interests)
+    except:
+        interests = []
+
+    return render_template(
+        'view_user.html',
+        user=user,
+        interests=interests
+    )
+
+
+# =====================================================
+# DISCOVER (🔥 FIXED — SEND REAL USERS)
 # =====================================================
 
 @main.route('/discover')
@@ -220,22 +244,7 @@ def discover():
 
     users = query.order_by(db.func.random()).limit(10).all()
 
-    users_data = []
-
-    for user in users:
-        interests = []
-        try:
-            if user.profile and user.profile.interests:
-                interests = json.loads(user.profile.interests)
-        except:
-            interests = []
-
-        users_data.append({
-            "user": user,
-            "interests": interests
-        })
-
-    return render_template('discover.html', users=users_data)
+    return render_template('discover.html', users=users)
 
 
 # =====================================================
@@ -296,7 +305,7 @@ def matches():
 
 
 # =====================================================
-# CONVERSATIONS LIST (IMPORTANT FIX)
+# MESSAGES LIST
 # =====================================================
 
 @main.route('/messages')
