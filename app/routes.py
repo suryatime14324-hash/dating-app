@@ -1,10 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import json
 import os
-import bleach
 
 from app import db
 from app.models import User, Profile, Like, Match, Message
@@ -30,119 +29,12 @@ def index():
 
 
 # =====================================================
-# AUTH
+# PROFILE EDIT
 # =====================================================
-
-@main.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.discover'))
-
-    if request.method == 'POST':
-        email = request.form.get('email', '').lower().strip()
-        password = request.form.get('password', '')
-        name = request.form.get('name', '').strip()
-        age = request.form.get('age', type=int)
-        gender = request.form.get('gender', '')
-        looking_for = request.form.get('looking_for', 'everyone')
-
-        if not all([email, password, name, age, gender]):
-            flash('Please fill all required fields', 'error')
-            return redirect(url_for('main.register'))
-
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered', 'error')
-            return redirect(url_for('main.register'))
-
-        if len(password) < 6:
-            flash('Password must be at least 6 characters', 'error')
-            return redirect(url_for('main.register'))
-
-        if age < 18:
-            flash('You must be 18+', 'error')
-            return redirect(url_for('main.register'))
-
-        user = User(email=email)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.flush()
-
-        profile = Profile(
-            user_id=user.id,
-            name=name,
-            age=age,
-            gender=gender,
-            looking_for=looking_for,
-            interests=json.dumps([])
-        )
-
-        db.session.add(profile)
-        db.session.commit()
-
-        login_user(user)
-        return redirect(url_for('main.edit_profile'))
-
-    return render_template('register.html')
-
-
-@main.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.discover'))
-
-    if request.method == 'POST':
-        email = request.form.get('email', '').lower().strip()
-        password = request.form.get('password', '')
-
-        user = User.query.filter_by(email=email).first()
-
-        if user and user.check_password(password):
-            user.last_active = datetime.utcnow()
-            db.session.commit()
-            login_user(user, remember=True)
-            return redirect(url_for('main.discover'))
-
-        flash('Invalid credentials', 'error')
-
-    return render_template('login.html')
-
-
-@main.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('main.index'))
-
-
-# =====================================================
-# PROFILE
-# =====================================================
-
-@main.route('/profile')
-@login_required
-def profile():
-
-    if not current_user.profile:
-        return redirect(url_for('main.edit_profile'))
-
-    interests = []
-    try:
-        if current_user.profile.interests:
-            interests = json.loads(current_user.profile.interests)
-    except:
-        interests = []
-
-    return render_template(
-        'profile.html',
-        user=current_user,
-        interests=interests
-    )
-
 
 @main.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
-
     profile = current_user.profile
 
     if request.method == 'POST':
@@ -165,7 +57,8 @@ def edit_profile():
         interests = request.form.getlist('interests')
         profile.interests = json.dumps(interests)
 
-        upload_folder = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
+        # 🔥 FIXED UPLOAD PATH (Render Safe)
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
         os.makedirs(upload_folder, exist_ok=True)
 
         for field in ['photo1', 'photo2', 'photo3']:
@@ -181,36 +74,65 @@ def edit_profile():
         return redirect(url_for('main.profile'))
 
     interests = []
-    try:
-        if profile and profile.interests:
+    if profile and profile.interests:
+        try:
             interests = json.loads(profile.interests)
-    except:
-        interests = []
+        except:
+            interests = []
 
     return render_template('edit_profile.html', profile=profile, interests=interests)
 
 
 # =====================================================
-# VIEW USER
+# PROFILE VIEW
+# =====================================================
+
+@main.route('/profile')
+@login_required
+def profile():
+    interests = []
+    if current_user.profile and current_user.profile.interests:
+        try:
+            interests = json.loads(current_user.profile.interests)
+        except:
+            interests = []
+
+    return render_template('profile.html', user=current_user, interests=interests)
+
+
+# =====================================================
+# VIEW OTHER USER
 # =====================================================
 
 @main.route('/user/<user_id>')
 @login_required
 def view_user(user_id):
-
     user = User.query.get_or_404(user_id)
 
     interests = []
-    try:
-        if user.profile and user.profile.interests:
+    if user.profile and user.profile.interests:
+        try:
             interests = json.loads(user.profile.interests)
-    except:
-        interests = []
+        except:
+            interests = []
+
+    is_match = Match.query.filter(
+        ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
+        ((Match.user1_id == user_id) & (Match.user2_id == current_user.id)),
+        Match.is_match == True
+    ).first() is not None
+
+    has_liked = Like.query.filter_by(
+        liker_id=current_user.id,
+        liked_id=user_id
+    ).first() is not None
 
     return render_template(
         'view_user.html',
         user=user,
-        interests=interests
+        interests=interests,
+        is_match=is_match,
+        has_liked=has_liked
     )
 
 
@@ -221,34 +143,22 @@ def view_user(user_id):
 @main.route('/discover')
 @login_required
 def discover():
-
-    if not current_user.profile:
-        return redirect(url_for('main.edit_profile'))
-
     profile = current_user.profile
+    if not profile:
+        return redirect(url_for('main.edit_profile'))
 
     query = User.query.join(Profile).filter(
         User.id != current_user.id,
-        User.is_active == True,
         Profile.age >= profile.min_age,
         Profile.age <= profile.max_age
     )
 
-    if profile.looking_for != 'everyone':
-        query = query.filter(Profile.gender == profile.looking_for)
-
-    liked_ids = [l.liked_id for l in current_user.likes_given.all()]
-
-    if liked_ids:
-        query = query.filter(~User.id.in_(liked_ids))
-
     users = query.order_by(db.func.random()).limit(10).all()
-
     return render_template('discover.html', users=users)
 
 
 # =====================================================
-# LIKE / MATCH
+# LIKE
 # =====================================================
 
 @main.route('/like/<user_id>', methods=['POST'])
@@ -261,28 +171,27 @@ def like_user(user_id):
     if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
         return jsonify({'error': 'Already liked'}), 400
 
-    like = Like(liker_id=current_user.id, liked_id=user_id)
-    db.session.add(like)
+    db.session.add(Like(liker_id=current_user.id, liked_id=user_id))
 
-    existing = Match.query.filter(
+    match = Match.query.filter(
         ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
         ((Match.user1_id == user_id) & (Match.user2_id == current_user.id))
     ).first()
 
     is_new_match = False
 
-    if not existing:
-        existing = Match(user1_id=current_user.id, user2_id=user_id, user1_likes=True)
-        db.session.add(existing)
+    if not match:
+        match = Match(user1_id=current_user.id, user2_id=user_id, user1_likes=True)
+        db.session.add(match)
     else:
-        if existing.user1_id == current_user.id:
-            existing.user1_likes = True
+        if match.user1_id == current_user.id:
+            match.user1_likes = True
         else:
-            existing.user2_likes = True
+            match.user2_likes = True
 
-        if existing.user1_likes and existing.user2_likes:
-            existing.is_match = True
-            existing.matched_at = datetime.utcnow()
+        if match.user1_likes and match.user2_likes:
+            match.is_match = True
+            match.matched_at = datetime.utcnow()
             is_new_match = True
 
     db.session.commit()
@@ -294,48 +203,10 @@ def like_user(user_id):
 
 
 # =====================================================
-# MATCHES
+# PASS
 # =====================================================
 
-@main.route('/matches')
+@main.route('/pass/<user_id>', methods=['POST'])
 @login_required
-def matches():
-    matches = current_user.get_matches()
-    return render_template('matches.html', matches=matches)
-
-
-# =====================================================
-# MESSAGES LIST
-# =====================================================
-
-@main.route('/messages')
-@login_required
-def messages():
-    conversations = current_user.get_conversations()
-    return render_template('conversations.html', conversations=conversations)
-
-
-# =====================================================
-# CHAT
-# =====================================================
-
-@main.route('/messages/<user_id>')
-@login_required
-def chat(user_id):
-
-    match = Match.query.filter(
-        ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
-        ((Match.user1_id == user_id) & (Match.user2_id == current_user.id)),
-        Match.is_match == True
-    ).first()
-
-    if not match:
-        flash('Not matched', 'error')
-        return redirect(url_for('main.matches'))
-
-    messages = Message.query.filter(
-        ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
-        ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.created_at.asc()).all()
-
-    return render_template('chat.html', messages=messages, other_user_id=user_id)
+def pass_user(user_id):
+    return jsonify({"success": True})

@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Discover - Dating App{% endblock %}
+{% block title %}Discover{% endblock %}
 
 {% block content %}
 <div class="discover-container">
     <h1>Discover</h1>
-    <p class="discover-subtitle">Find your perfect match</p>
 
     {% if users %}
         <div class="profiles-grid">
@@ -14,62 +13,42 @@
 
                     <div class="profile-card-image">
                         {% if user.profile and user.profile.photo1 %}
-                            <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}">
+                            <img src="{{ user.profile.photo1 }}">
                         {% else %}
                             <div class="profile-photo-placeholder">
                                 <i class="fas fa-user"></i>
                             </div>
                         {% endif %}
-
-                        <div class="profile-card-overlay">
-                            <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
-                            {% if user.profile.city %}
-                                <p><i class="fas fa-map-marker-alt"></i> {{ user.profile.city }}</p>
-                            {% endif %}
-                        </div>
                     </div>
 
-                    <div class="profile-card-info">
-
-                        {% if user.profile.occupation %}
-                            <p class="occupation">
-                                <i class="fas fa-briefcase"></i>
-                                {{ user.profile.occupation }}
-                            </p>
-                        {% endif %}
-
-                        {% if user.profile.bio %}
-                            <p class="bio">
-                                {{ user.profile.bio[:100] }}
-                                {% if user.profile.bio|length > 100 %}...{% endif %}
-                            </p>
-                        {% endif %}
-
-                    </div>
+                    <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
 
                     <div class="profile-card-actions">
-                        <button class="btn-action btn-pass" onclick="passUser('{{ user.id }}')">
-                            <i class="fas fa-times"></i>
-                        </button>
-
-                        <a href="{{ url_for('main.view_user', user_id=user.id) }}" class="btn-action btn-view">
-                            <i class="fas fa-eye"></i>
-                        </a>
-
-                        <button class="btn-action btn-like" onclick="likeUser('{{ user.id }}')">
-                            <i class="fas fa-heart"></i>
-                        </button>
+                        <button onclick="passUser('{{ user.id }}')">❌</button>
+                        <a href="{{ url_for('main.view_user', user_id=user.id) }}">👁</a>
+                        <button onclick="likeUser('{{ user.id }}')">❤️</button>
                     </div>
 
                 </div>
             {% endfor %}
         </div>
-
     {% else %}
-        <div class="empty-state">
-            <h2>No more profiles</h2>
-            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">View Matches</a>
-        </div>
+        <p>No more users</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function likeUser(userId) {
+    fetch(`/like/${userId}`, { method: 'POST' })
+    .then(res => res.json())
+    .then(() => location.reload());
+}
+
+function passUser(userId) {
+    fetch(`/pass/${userId}`, { method: 'POST' })
+    .then(() => location.reload());
+}
+</script>
 {% endblock %}
