@@ -35,7 +35,7 @@ def index():
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == "POST":
-        email = request.form.get("email").lower().strip()
+        email = request.form.get("email", "").lower().strip()
         password = request.form.get("password")
 
         user = User.query.filter_by(email=email).first()
@@ -52,7 +52,7 @@ def login():
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == "POST":
-        email = request.form.get("email").lower().strip()
+        email = request.form.get("email", "").lower().strip()
         password = request.form.get("password")
 
         if User.query.filter_by(email=email).first():
@@ -145,18 +145,14 @@ def discover():
         User.id != current_user.id
     ).all()
 
-    liked_ids = [
-        like.liked_id
-        for like in Like.query.filter_by(liker_id=current_user.id).all()
-    ]
-
+    liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
     users = [u for u in users if u.id not in liked_ids]
 
     return render_template('discover.html', users=users)
 
 
 # =====================================================
-# VIEW USER  🔥 FIXED (REMOVED <int:>)
+# VIEW USER
 # =====================================================
 
 @main.route('/user/<user_id>')
@@ -194,7 +190,7 @@ def view_user(user_id):
 
 
 # =====================================================
-# LIKE 🔥 FIXED
+# LIKE
 # =====================================================
 
 @main.route('/like/<user_id>', methods=['POST'])
@@ -207,8 +203,7 @@ def like_user(user_id):
     if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
         return jsonify({'error': 'Already liked'}), 400
 
-    new_like = Like(liker_id=current_user.id, liked_id=user_id)
-    db.session.add(new_like)
+    db.session.add(Like(liker_id=current_user.id, liked_id=user_id))
 
     liked_back = Like.query.filter_by(
         liker_id=user_id,
@@ -235,7 +230,7 @@ def like_user(user_id):
 
 
 # =====================================================
-# PASS 🔥 FIXED
+# PASS
 # =====================================================
 
 @main.route('/pass/<user_id>', methods=['POST'])
@@ -261,13 +256,25 @@ def matches():
 
 
 # =====================================================
-# MESSAGES
+# CHAT  🔥 (THIS FIXES YOUR CRASH)
 # =====================================================
 
-@main.route('/messages')
+@main.route('/messages/<user_id>')
 @login_required
-def messages():
-    return render_template('conversations.html')
+def chat(user_id):
+
+    other_user = User.query.get_or_404(user_id)
+
+    messages = Message.query.filter(
+        ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
+        ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
+    ).order_by(Message.created_at.asc()).all()
+
+    return render_template(
+        'chat.html',
+        messages=messages,
+        other_user=other_user
+    )
 
 
 # =====================================================
