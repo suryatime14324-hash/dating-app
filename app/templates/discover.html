@@ -9,11 +9,9 @@
     
     {% if users %}
         <div class="profiles-grid">
-            {% for item in users %}
-                {% set user = item.user %}
-                {% set interests = item.interests %}
-
+            {% for user in users %}
                 <div class="profile-card" data-user-id="{{ user.id }}">
+                    
                     <div class="profile-card-image">
                         {% if user.profile and user.profile.photo1 %}
                             <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}">
@@ -26,18 +24,16 @@
                         <div class="profile-card-overlay">
                             <h3>{{ user.profile.name }}, {{ user.profile.age }}</h3>
                             {% if user.profile.city %}
-                                <p>
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    {{ user.profile.city }}
-                                </p>
+                                <p><i class="fas fa-map-marker-alt"></i> {{ user.profile.city }}</p>
                             {% endif %}
                         </div>
                     </div>
                     
                     <div class="profile-card-info">
+
                         {% if user.profile.occupation %}
                             <p class="occupation">
-                                <i class="fas fa-briefcase"></i>
+                                <i class="fas fa-briefcase"></i> 
                                 {{ user.profile.occupation }}
                             </p>
                         {% endif %}
@@ -49,13 +45,13 @@
                             </p>
                         {% endif %}
                         
-                        {% if interests %}
+                        {% if user.profile.interests %}
                             <div class="interests-preview">
-                                {% for interest in interests %}
-                                    <span class="tag tag-small">{{ interest }}</span>
+                                {% for interest in user.profile.interests | default('[]') | safe %}
                                 {% endfor %}
                             </div>
                         {% endif %}
+                        
                     </div>
                     
                     <div class="profile-card-actions">
@@ -71,34 +67,18 @@
                             <i class="fas fa-heart"></i>
                         </button>
                     </div>
+
                 </div>
             {% endfor %}
         </div>
+
     {% else %}
         <div class="empty-state">
             <i class="fas fa-search"></i>
             <h2>No more profiles</h2>
             <p>Check back later for more matches!</p>
-            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">
-                View Your Matches
-            </a>
+            <a href="{{ url_for('main.matches') }}" class="btn btn-primary">View Your Matches</a>
         </div>
     {% endif %}
-</div>
-
-<!-- Match Modal -->
-<div id="matchModal" class="modal">
-    <div class="modal-content match-modal">
-        <div class="match-animation">
-            <i class="fas fa-heart"></i>
-        </div>
-        <h2>It's a Match!</h2>
-        <p>You both liked each other!</p>
-        <div class="match-actions">
-            <button onclick="closeMatchModal()" class="btn btn-secondary">
-                Keep Swiping
-            </button>
-        </div>
-    </div>
 </div>
 {% endblock %}
