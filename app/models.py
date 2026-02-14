@@ -7,14 +7,14 @@ import uuid
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_active = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
-    
+
     profile = db.relationship('Profile', backref='user', uselist=False, cascade='all, delete-orphan')
 
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy='dynamic')
@@ -46,7 +46,7 @@ class User(UserMixin, db.Model):
 
 class Profile(db.Model):
     __tablename__ = 'profiles'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
 
@@ -77,18 +77,20 @@ class Profile(db.Model):
 
 class Like(db.Model):
     __tablename__ = 'likes'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     liker_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     liked_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    __table_args__ = (db.UniqueConstraint('liker_id', 'liked_id', name='unique_like'),)
+    __table_args__ = (
+        db.UniqueConstraint('liker_id', 'liked_id', name='unique_like'),
+    )
 
 
 class Match(db.Model):
     __tablename__ = 'matches'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user1_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     user2_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
@@ -98,7 +100,9 @@ class Match(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     matched_at = db.Column(db.DateTime)
 
-    __table_args__ = (db.UniqueConstraint('user1_id', 'user2_id', name='unique_match_pair'),)
+    __table_args__ = (
+        db.UniqueConstraint('user1_id', 'user2_id', name='unique_match_pair'),
+    )
 
     def check_match(self):
         if self.user1_likes and self.user2_likes:
@@ -113,7 +117,7 @@ class Match(db.Model):
 
 class Message(db.Model):
     __tablename__ = 'messages'
-    
+
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     sender_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     receiver_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
