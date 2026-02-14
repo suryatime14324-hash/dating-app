@@ -1,6 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.utils import secure_filename
 from datetime import datetime
 import json
 import os
@@ -10,16 +9,8 @@ from app.models import User, Profile, Like, Match, Message
 
 main = Blueprint('main', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-# =====================================================
-# HOME
-# =====================================================
+# ================= HOME =================
 
 @main.route('/')
 def index():
@@ -28,9 +19,7 @@ def index():
     return render_template('index.html')
 
 
-# =====================================================
-# AUTH
-# =====================================================
+# ================= AUTH =================
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
@@ -78,21 +67,12 @@ def logout():
     return redirect(url_for('main.index'))
 
 
-# =====================================================
-# PROFILE
-# =====================================================
+# ================= PROFILE =================
 
 @main.route('/profile')
 @login_required
 def profile():
-    interests = []
-    if current_user.profile and current_user.profile.interests:
-        try:
-            interests = json.loads(current_user.profile.interests)
-        except:
-            interests = []
-
-    return render_template('profile.html', user=current_user, interests=interests)
+    return render_template('profile.html', user=current_user)
 
 
 @main.route('/profile/edit', methods=['GET', 'POST'])
@@ -101,31 +81,13 @@ def edit_profile():
     profile = current_user.profile
 
     if request.method == 'POST':
-
         if not profile:
             profile = Profile(user_id=current_user.id)
             db.session.add(profile)
 
         profile.name = request.form.get('name')
         profile.age = request.form.get('age', type=int)
-        profile.gender = request.form.get('gender')
-        profile.looking_for = request.form.get('looking_for')
         profile.bio = request.form.get('bio')
-        profile.occupation = request.form.get('occupation')
-        profile.city = request.form.get('city')
-
-        interests = request.form.getlist('interests')
-        profile.interests = json.dumps(interests)
-
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
-        os.makedirs(upload_folder, exist_ok=True)
-
-        for field in ['photo1', 'photo2', 'photo3']:
-            file = request.files.get(field)
-            if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(f"{current_user.id}_{field}_{file.filename}")
-                file.save(os.path.join(upload_folder, filename))
-                setattr(profile, field, f"/static/uploads/{filename}")
 
         db.session.commit()
         return redirect(url_for('main.profile'))
@@ -133,9 +95,7 @@ def edit_profile():
     return render_template('edit_profile.html', profile=profile)
 
 
-# =====================================================
-# DISCOVER
-# =====================================================
+# ================= DISCOVER =================
 
 @main.route('/discover')
 @login_required
@@ -145,60 +105,23 @@ def discover():
         User.id != current_user.id
     ).all()
 
-    liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
-    users = [u for u in users if u.id not in liked_ids]
-
     return render_template('discover.html', users=users)
 
 
-# =====================================================
-# VIEW USER
-# =====================================================
+# ================= VIEW USER =================
 
 @main.route('/user/<user_id>')
 @login_required
 def view_user(user_id):
-
     user = User.query.get_or_404(user_id)
-
-    interests = []
-    if user.profile and user.profile.interests:
-        try:
-            interests = json.loads(user.profile.interests)
-        except:
-            interests = []
-
-    liked_back = Like.query.filter_by(
-        liker_id=user_id,
-        liked_id=current_user.id
-    ).first()
-
-    has_liked = Like.query.filter_by(
-        liker_id=current_user.id,
-        liked_id=user_id
-    ).first()
-
-    is_match = bool(liked_back and has_liked)
-
-    return render_template(
-        'view_user.html',
-        user=user,
-        interests=interests,
-        is_match=is_match,
-        has_liked=bool(has_liked)
-    )
+    return render_template('view_user.html', user=user)
 
 
-# =====================================================
-# LIKE
-# =====================================================
+# ================= LIKE =================
 
 @main.route('/like/<user_id>', methods=['POST'])
 @login_required
 def like_user(user_id):
-
-    if user_id == current_user.id:
-        return jsonify({'error': 'Cannot like yourself'}), 400
 
     if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
         return jsonify({'error': 'Already liked'}), 400
@@ -213,35 +136,19 @@ def like_user(user_id):
     is_match = False
 
     if liked_back:
-        match = Match(
+        db.session.add(Match(
             user1_id=current_user.id,
             user2_id=user_id,
             matched_at=datetime.utcnow()
-        )
-        db.session.add(match)
+        ))
         is_match = True
 
     db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "is_match": is_match
-    })
+    return jsonify({"success": True, "is_match": is_match})
 
 
-# =====================================================
-# PASS
-# =====================================================
-
-@main.route('/pass/<user_id>', methods=['POST'])
-@login_required
-def pass_user(user_id):
-    return jsonify({"success": True})
-
-
-# =====================================================
-# MATCHES
-# =====================================================
+# ================= MATCHES =================
 
 @main.route('/matches')
 @login_required
@@ -255,11 +162,9 @@ def matches():
     return render_template('matches.html', matches=matches)
 
 
-# =====================================================
-# CHAT  🔥 (THIS FIXES YOUR CRASH)
-# =====================================================
+# ================= CHAT =================
 
-@main.route('/messages/<user_id>')
+@main.route('/chat/<user_id>')
 @login_required
 def chat(user_id):
 
@@ -277,9 +182,15 @@ def chat(user_id):
     )
 
 
-# =====================================================
-# UNREAD COUNT
-# =====================================================
+# ================= CONVERSATIONS =================
+
+@main.route('/messages')
+@login_required
+def messages():
+    return render_template('conversations.html')
+
+
+# ================= UNREAD COUNT =================
 
 @main.route('/messages/unread-count')
 @login_required

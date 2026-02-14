@@ -7,46 +7,80 @@
     <h1>Your Matches</h1>
     <p class="matches-subtitle">People who liked you back</p>
     
-    {% if matches %}
+    {% if matches and matches|length > 0 %}
         <div class="matches-grid">
+
             {% for match in matches %}
-                {% set other_user = match.get_other_user(current_user.id) %}
+
+                {% if match.user1_id == current_user.id %}
+                    {% set other_user = match.user2 %}
+                {% else %}
+                    {% set other_user = match.user1 %}
+                {% endif %}
+
                 <div class="match-card">
+
+                    <!-- IMAGE -->
                     <div class="match-card-image">
-                        {% if other_user.profile.photo1 %}
-                            <img src="{{ other_user.profile.photo1 }}" alt="{{ other_user.profile.name }}">
+                        {% if other_user.profile and other_user.profile.photo1 %}
+                            <img src="{{ other_user.profile.photo1 }}" alt="Profile Photo">
                         {% else %}
                             <div class="profile-photo-placeholder">
                                 <i class="fas fa-user"></i>
                             </div>
                         {% endif %}
                     </div>
+
+                    <!-- INFO -->
                     <div class="match-card-info">
-                        <h3>{{ other_user.profile.name }}, {{ other_user.profile.age }}</h3>
-                        {% if other_user.profile.city %}
-                            <p><i class="fas fa-map-marker-alt"></i> {{ other_user.profile.city }}</p>
+                        <h3>
+                            {{ other_user.profile.name if other_user.profile else "User" }}
+                            {% if other_user.profile and other_user.profile.age %}
+                                , {{ other_user.profile.age }}
+                            {% endif %}
+                        </h3>
+
+                        {% if other_user.profile and other_user.profile.city %}
+                            <p>
+                                <i class="fas fa-map-marker-alt"></i>
+                                {{ other_user.profile.city }}
+                            </p>
                         {% endif %}
-                        <p class="match-date">
-                            <i class="fas fa-heart"></i> Matched {{ match.matched_at.strftime('%b %d') }}
-                        </p>
+
+                        {% if match.matched_at %}
+                            <p class="match-date">
+                                <i class="fas fa-heart"></i>
+                                Matched {{ match.matched_at.strftime('%b %d') }}
+                            </p>
+                        {% endif %}
                     </div>
+
+                    <!-- ACTIONS -->
                     <div class="match-card-actions">
-                        <a href="{{ url_for('main.chat', user_id=other_user.id) }}" class="btn btn-primary">
+                        <a href="{{ url_for('main.chat', user_id=other_user.id) }}"
+                           class="btn btn-primary">
                             <i class="fas fa-comment"></i> Chat
                         </a>
-                        <a href="{{ url_for('main.view_user', user_id=other_user.id) }}" class="btn btn-secondary">
+
+                        <a href="{{ url_for('main.view_user', user_id=other_user.id) }}"
+                           class="btn btn-secondary">
                             <i class="fas fa-eye"></i> View
                         </a>
                     </div>
+
                 </div>
+
             {% endfor %}
+
         </div>
     {% else %}
         <div class="empty-state">
             <i class="fas fa-heart-broken"></i>
             <h2>No matches yet</h2>
             <p>Start liking profiles to find your matches!</p>
-            <a href="{{ url_for('main.discover') }}" class="btn btn-primary">Start Discovering</a>
+            <a href="{{ url_for('main.discover') }}" class="btn btn-primary">
+                Start Discovering
+            </a>
         </div>
     {% endif %}
 </div>
