@@ -141,23 +141,25 @@ def edit_profile():
 @login_required
 def discover():
 
-    # Exclude self
     users = User.query.join(Profile).filter(
         User.id != current_user.id
     ).all()
 
-    # Remove already liked users
-    liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
+    liked_ids = [
+        like.liked_id
+        for like in Like.query.filter_by(liker_id=current_user.id).all()
+    ]
+
     users = [u for u in users if u.id not in liked_ids]
 
     return render_template('discover.html', users=users)
 
 
 # =====================================================
-# VIEW USER
+# VIEW USER  🔥 FIXED (REMOVED <int:>)
 # =====================================================
 
-@main.route('/user/<int:user_id>')
+@main.route('/user/<user_id>')
 @login_required
 def view_user(user_id):
 
@@ -170,7 +172,6 @@ def view_user(user_id):
         except:
             interests = []
 
-    # Check mutual like
     liked_back = Like.query.filter_by(
         liker_id=user_id,
         liked_id=current_user.id
@@ -181,9 +182,7 @@ def view_user(user_id):
         liked_id=user_id
     ).first()
 
-    is_match = False
-    if liked_back and has_liked:
-        is_match = True
+    is_match = bool(liked_back and has_liked)
 
     return render_template(
         'view_user.html',
@@ -195,10 +194,10 @@ def view_user(user_id):
 
 
 # =====================================================
-# LIKE (REAL MATCH LOGIC)
+# LIKE 🔥 FIXED
 # =====================================================
 
-@main.route('/like/<int:user_id>', methods=['POST'])
+@main.route('/like/<user_id>', methods=['POST'])
 @login_required
 def like_user(user_id):
 
@@ -211,7 +210,6 @@ def like_user(user_id):
     new_like = Like(liker_id=current_user.id, liked_id=user_id)
     db.session.add(new_like)
 
-    # Check if other user liked back
     liked_back = Like.query.filter_by(
         liker_id=user_id,
         liked_id=current_user.id
@@ -237,10 +235,10 @@ def like_user(user_id):
 
 
 # =====================================================
-# PASS
+# PASS 🔥 FIXED
 # =====================================================
 
-@main.route('/pass/<int:user_id>', methods=['POST'])
+@main.route('/pass/<user_id>', methods=['POST'])
 @login_required
 def pass_user(user_id):
     return jsonify({"success": True})
