@@ -80,7 +80,6 @@ def register():
         db.session.commit()
 
         login_user(user)
-        flash('Welcome! Complete your profile.', 'success')
         return redirect(url_for('main.edit_profile'))
 
     return render_template('register.html')
@@ -122,15 +121,16 @@ def logout():
 @main.route('/profile')
 @login_required
 def profile():
+
     if not current_user.profile:
         return redirect(url_for('main.edit_profile'))
 
     interests = []
-    if current_user.profile.interests:
-        try:
+    try:
+        if current_user.profile.interests:
             interests = json.loads(current_user.profile.interests)
-        except:
-            interests = []
+    except:
+        interests = []
 
     return render_template(
         'profile.html',
@@ -142,6 +142,7 @@ def profile():
 @main.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
+
     profile = current_user.profile
 
     if request.method == 'POST':
@@ -177,15 +178,14 @@ def edit_profile():
                     setattr(profile, field, f'/static/uploads/{filename}')
 
         db.session.commit()
-        flash('Profile updated!', 'success')
         return redirect(url_for('main.profile'))
 
     interests = []
-    if profile and profile.interests:
-        try:
+    try:
+        if profile and profile.interests:
             interests = json.loads(profile.interests)
-        except:
-            interests = []
+    except:
+        interests = []
 
     return render_template('edit_profile.html', profile=profile, interests=interests)
 
@@ -224,11 +224,11 @@ def discover():
 
     for user in users:
         interests = []
-        if user.profile and user.profile.interests:
-            try:
+        try:
+            if user.profile and user.profile.interests:
                 interests = json.loads(user.profile.interests)
-            except:
-                interests = []
+        except:
+            interests = []
 
         users_data.append({
             "user": user,
@@ -296,7 +296,18 @@ def matches():
 
 
 # =====================================================
-# MESSAGING
+# CONVERSATIONS LIST (IMPORTANT FIX)
+# =====================================================
+
+@main.route('/messages')
+@login_required
+def messages():
+    conversations = current_user.get_conversations()
+    return render_template('conversations.html', conversations=conversations)
+
+
+# =====================================================
+# CHAT
 # =====================================================
 
 @main.route('/messages/<user_id>')
