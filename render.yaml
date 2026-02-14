@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: dating-app
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 120 run:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dating-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+    healthCheckPath: /
+    autoDeploy: true
+
+  - type: pserv
+    name: dating-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: echo "Worker service ready"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dating-db
+          property: connectionString
+
+databases:
+  - name: dating-db
+    databaseName: datingapp
+    user: datingapp
+    plan: free

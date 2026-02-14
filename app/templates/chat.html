@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Chat with {{ other_user.profile.name }} - Dating App{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <a href="{{ url_for('main.messages') }}" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div class="chat-user-info">
+            {% if other_user.profile.photo1 %}
+                <img src="{{ other_user.profile.photo1 }}" alt="{{ other_user.profile.name }}" class="chat-avatar">
+            {% else %}
+                <div class="avatar-placeholder small">
+                    <i class="fas fa-user"></i>
+                </div>
+            {% endif %}
+            <div class="chat-user-details">
+                <h3>{{ other_user.profile.name }}</h3>
+                <span class="online-status">Online</span>
+            </div>
+        </div>
+        <a href="{{ url_for('main.view_user', user_id=other_user.id) }}" class="view-profile-btn">
+            <i class="fas fa-eye"></i>
+        </a>
+    </div>
+    
+    <div class="chat-messages" id="chatMessages">
+        {% for message in messages %}
+            <div class="message {{ 'sent' if message.sender_id == current_user.id else 'received' }}">
+                <div class="message-content">
+                    {{ message.content }}
+                </div>
+                <div class="message-meta">
+                    <span class="message-time">{{ message.created_at.strftime('%H:%M') }}</span>
+                    {% if message.sender_id == current_user.id %}
+                        <span class="message-status">
+                            {% if message.is_read %}
+                                <i class="fas fa-check-double read"></i>
+                            {% else %}
+                                <i class="fas fa-check"></i>
+                            {% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <div class="chat-input-container">
+        <form id="messageForm" class="chat-form">
+            <input type="text" id="messageInput" placeholder="Type a message..." maxlength="1000" autocomplete="off">
+            <button type="submit" class="send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const otherUserId = '{{ other_user.id }}';
+const chatMessages = document.getElementById('chatMessages');
+const messageForm = document.getElementById('messageForm');
+const messageInput = document.getElementById('messageInput');
+
+// Scroll to bottom
+chatMessages.scrollTop = chatMessages.scrollHeight;
+
+// Send message
+messageForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const content = messageInput.value.trim();
+    if (!content) return;
+    
+    // Clear input
+    messageInput.value = '';
+    
+    // Add message to UI immediately
+    addMessageToUI(content, true);
+    
+    // Send to server
+    try {
+        const response = await fetch(`/messages/${otherUserId}/send`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content })
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to send message');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+});
+
+function addMessageToUI(content, isSent) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+    
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    messageDiv.innerHTML = `
+        <div class="message-content">${escapeHtml(content)}</div>
+        <div class="message-meta">
+            <span class="message-time">${time}</span>
+            ${isSent ? '<span class="message-status"><i class="fas fa-check"></i></span>' : ''}
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Poll for new messages every 5 seconds
+setInterval(async () => {
+    try {
+        const response = await fetch(`/api/profile/${otherUserId}`);
+        // This is a simple poll - in production, use WebSockets
+    } catch (error) {
+        console.error('Poll error:', error);
+    }
+}, 5000);
+</script>
+{% endblock %}

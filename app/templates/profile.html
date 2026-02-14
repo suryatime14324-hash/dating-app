@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - Dating App{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="profile-header">
+        <div class="profile-photos">
+            {% if user.profile.photo1 %}
+                <img src="{{ user.profile.photo1 }}" alt="Profile" class="profile-main-photo">
+            {% else %}
+                <div class="profile-photo-placeholder">
+                    <i class="fas fa-user"></i>
+                </div>
+            {% endif %}
+            <div class="photo-thumbnails">
+                {% if user.profile.photo2 %}
+                    <img src="{{ user.profile.photo2 }}" alt="Photo 2">
+                {% endif %}
+                {% if user.profile.photo3 %}
+                    <img src="{{ user.profile.photo3 }}" alt="Photo 3">
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="profile-info">
+            <h1>{{ user.profile.name }}, {{ user.profile.age }}</h1>
+            <p class="profile-location">
+                <i class="fas fa-map-marker-alt"></i> {{ user.profile.city or 'Location not set' }}
+            </p>
+            {% if user.profile.occupation %}
+                <p class="profile-occupation">
+                    <i class="fas fa-briefcase"></i> {{ user.profile.occupation }}
+                </p>
+            {% endif %}
+            
+            <div class="profile-actions">
+                <a href="{{ url_for('main.edit_profile') }}" class="btn btn-secondary">
+                    <i class="fas fa-edit"></i> Edit Profile
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="profile-details">
+        {% if user.profile.bio %}
+            <div class="detail-section">
+                <h3>About Me</h3>
+                <p>{{ user.profile.bio }}</p>
+            </div>
+        {% endif %}
+        
+        {% if user.profile.interests %}
+            <div class="detail-section">
+                <h3>Interests</h3>
+                <div class="interests-tags">
+                    {% for interest in user.profile.interests|fromjson %}
+                        <span class="tag">{{ interest }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        
+        <div class="detail-section">
+            <h3>Preferences</h3>
+            <div class="preferences-grid">
+                <div class="preference-item">
+                    <span class="label">Looking for:</span>
+                    <span class="value">{{ user.profile.looking_for|title }}</span>
+                </div>
+                <div class="preference-item">
+                    <span class="label">Age range:</span>
+                    <span class="value">{{ user.profile.min_age }} - {{ user.profile.max_age }}</span>
+                </div>
+                <div class="preference-item">
+                    <span class="label">Max distance:</span>
+                    <span class="value">{{ user.profile.max_distance }} km</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Custom filter for JSON parsing
+</script>
+{% endblock %}

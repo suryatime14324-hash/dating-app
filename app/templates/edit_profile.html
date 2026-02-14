@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Profile - Dating App{% endblock %}
+
+{% block content %}
+<div class="edit-profile-container">
+    <h1>Edit Profile</h1>
+    
+    <form method="POST" action="{{ url_for('main.edit_profile') }}" enctype="multipart/form-data" class="edit-profile-form">
+        <div class="form-section">
+            <h3>Basic Information</h3>
+            
+            <div class="form-group">
+                <label for="name">Name *</label>
+                <input type="text" id="name" name="name" value="{{ profile.name if profile else '' }}" required>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="age">Age *</label>
+                    <input type="number" id="age" name="age" value="{{ profile.age if profile else '' }}" required min="18" max="120">
+                </div>
+                
+                <div class="form-group">
+                    <label for="gender">Gender *</label>
+                    <select id="gender" name="gender" required>
+                        <option value="male" {{ 'selected' if profile and profile.gender == 'male' else '' }}>Male</option>
+                        <option value="female" {{ 'selected' if profile and profile.gender == 'female' else '' }}>Female</option>
+                        <option value="non_binary" {{ 'selected' if profile and profile.gender == 'non_binary' else '' }}>Non-binary</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="looking_for">Looking For *</label>
+                <select id="looking_for" name="looking_for" required>
+                    <option value="everyone" {{ 'selected' if profile and profile.looking_for == 'everyone' else '' }}>Everyone</option>
+                    <option value="male" {{ 'selected' if profile and profile.looking_for == 'male' else '' }}>Men</option>
+                    <option value="female" {{ 'selected' if profile and profile.looking_for == 'female' else '' }}>Women</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="occupation">Occupation</label>
+                <input type="text" id="occupation" name="occupation" value="{{ profile.occupation if profile else '' }}" placeholder="What do you do?">
+            </div>
+            
+            <div class="form-group">
+                <label for="city">City</label>
+                <input type="text" id="city" name="city" value="{{ profile.city if profile else '' }}" placeholder="Your city">
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>About You</h3>
+            
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" rows="4" placeholder="Tell others about yourself...">{{ profile.bio if profile else '' }}</textarea>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>Photos</h3>
+            <div class="photo-uploads">
+                <div class="photo-upload">
+                    <label>Main Photo</label>
+                    {% if profile and profile.photo1 %}
+                        <img src="{{ profile.photo1 }}" class="photo-preview">
+                    {% endif %}
+                    <input type="file" name="photo1" accept="image/*">
+                </div>
+                <div class="photo-upload">
+                    <label>Photo 2</label>
+                    {% if profile and profile.photo2 %}
+                        <img src="{{ profile.photo2 }}" class="photo-preview">
+                    {% endif %}
+                    <input type="file" name="photo2" accept="image/*">
+                </div>
+                <div class="photo-upload">
+                    <label>Photo 3</label>
+                    {% if profile and profile.photo3 %}
+                        <img src="{{ profile.photo3 }}" class="photo-preview">
+                    {% endif %}
+                    <input type="file" name="photo3" accept="image/*">
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>Interests</h3>
+            <div class="interests-selector">
+                {% set interest_options = ['Music', 'Sports', 'Travel', 'Food', 'Movies', 'Reading', 'Gaming', 'Fitness', 'Art', 'Photography', 'Dancing', 'Hiking', 'Cooking', 'Technology', 'Fashion'] %}
+                {% for interest in interest_options %}
+                    <label class="interest-checkbox">
+                        <input type="checkbox" name="interests" value="{{ interest }}" {{ 'checked' if interest in interests else '' }}>
+                        <span>{{ interest }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>Matching Preferences</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="min_age">Min Age</label>
+                    <input type="number" id="min_age" name="min_age" value="{{ profile.min_age if profile else 18 }}" min="18" max="99">
+                </div>
+                
+                <div class="form-group">
+                    <label for="max_age">Max Age</label>
+                    <input type="number" id="max_age" name="max_age" value="{{ profile.max_age if profile else 99 }}" min="18" max="99">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="max_distance">Max Distance (km)</label>
+                <input type="number" id="max_distance" name="max_distance" value="{{ profile.max_distance if profile else 100 }}" min="1" max="1000">
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-large">Save Profile</button>
+            <a href="{{ url_for('main.profile') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

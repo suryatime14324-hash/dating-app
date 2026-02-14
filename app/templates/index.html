@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Find Your Match - Dating App{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-content">
+        <h1>Find Your Perfect Match</h1>
+        <p>Connect with amazing people near you. Start your journey to finding love today.</p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('main.register') }}" class="btn btn-large btn-primary">Get Started</a>
+            <a href="{{ url_for('main.login') }}" class="btn btn-large btn-secondary">Sign In</a>
+        </div>
+    </div>
+    <div class="hero-image">
+        <div class="floating-cards">
+            <div class="card-preview card-1">
+                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=400&fit=crop" alt="Profile">
+                <div class="card-info">
+                    <h3>Sarah, 24</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> New York</p>
+                </div>
+            </div>
+            <div class="card-preview card-2">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=400&fit=crop" alt="Profile">
+                <div class="card-info">
+                    <h3>Michael, 28</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> Los Angeles</p>
+                </div>
+            </div>
+            <div class="card-preview card-3">
+                <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=400&fit=crop" alt="Profile">
+                <div class="card-info">
+                    <h3>Emma, 26</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> Chicago</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <h2>How It Works</h2>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h3>Create Profile</h3>
+            <p>Set up your profile with photos and interests in minutes.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h3>Discover</h3>
+            <p>Browse through profiles and find people who interest you.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-heart"></i>
+            </div>
+            <h3>Match</h3>
+            <p>Like profiles you're interested in. If they like you back, it's a match!</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-comment-dots"></i>
+            </div>
+            <h3>Message</h3>
+            <p>Chat with your matches and get to know each other.</p>
+        </div>
+    </div>
+</section>
+
+<section class="cta">
+    <h2>Ready to Find Love?</h2>
+    <p>Join thousands of singles already finding their perfect match.</p>
+    <a href="{{ url_for('main.register') }}" class="btn btn-large btn-primary">Create Free Account</a>
+</section>
+{% endblock %}

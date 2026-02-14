@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Messages - Dating App{% endblock %}
+
+{% block content %}
+<div class="conversations-container">
+    <h1>Messages</h1>
+    
+    {% if conversations %}
+        <div class="conversations-list">
+            {% for user in conversations %}
+                <a href="{{ url_for('main.chat', user_id=user.id) }}" class="conversation-item">
+                    <div class="conversation-avatar">
+                        {% if user.profile.photo1 %}
+                            <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}">
+                        {% else %}
+                            <div class="avatar-placeholder">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="conversation-info">
+                        <h3>{{ user.profile.name }}</h3>
+                        <p class="last-message">
+                            {% set last_msg = user.sent_messages.filter_by(receiver_id=current_user.id).union(
+                                user.received_messages.filter_by(sender_id=current_user.id)
+                            ).order_by(Message.created_at.desc()).first() %}
+                            
+                            {% if last_msg %}
+                                {% if last_msg.sender_id == current_user.id %}
+                                    <span class="you">You:</span>
+                                {% endif %}
+                                {{ last_msg.content[:50] }}{% if last_msg.content|length > 50 %}...{% endif %}
+                            {% else %}
+                                <span class="no-message">Start a conversation!</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="conversation-meta">
+                        {% if last_msg %}
+                            <span class="time">{{ last_msg.created_at.strftime('%H:%M') }}</span>
+                        {% endif %}
+                        {% set unread = user.sent_messages.filter_by(receiver_id=current_user.id, is_read=False).count() %}
+                        {% if unread > 0 %}
+                            <span class="unread-badge">{{ unread }}</span>
+                        {% endif %}
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-comment-slash"></i>
+            <h2>No messages yet</h2>
+            <p>Match with people to start chatting!</p>
+            <a href="{{ url_for('main.discover') }}" class="btn btn-primary">Find Matches</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

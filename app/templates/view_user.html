@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.profile.name }} - Dating App{% endblock %}
+
+{% block content %}
+<div class="view-profile-container">
+    <div class="view-profile-header">
+        <div class="view-profile-photos">
+            {% if user.profile.photo1 %}
+                <img src="{{ user.profile.photo1 }}" alt="{{ user.profile.name }}" class="view-main-photo">
+            {% else %}
+                <div class="profile-photo-placeholder large">
+                    <i class="fas fa-user"></i>
+                </div>
+            {% endif %}
+            
+            <div class="view-photo-gallery">
+                {% if user.profile.photo2 %}
+                    <img src="{{ user.profile.photo2 }}" alt="Photo 2">
+                {% endif %}
+                {% if user.profile.photo3 %}
+                    <img src="{{ user.profile.photo3 }}" alt="Photo 3">
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="view-profile-info">
+            <h1>{{ user.profile.name }}, {{ user.profile.age }}</h1>
+            
+            {% if user.profile.city %}
+                <p class="profile-location">
+                    <i class="fas fa-map-marker-alt"></i> {{ user.profile.city }}
+                </p>
+            {% endif %}
+            
+            {% if user.profile.occupation %}
+                <p class="profile-occupation">
+                    <i class="fas fa-briefcase"></i> {{ user.profile.occupation }}
+                </p>
+            {% endif %}
+            
+            <div class="view-profile-actions">
+                {% if is_match %}
+                    <a href="{{ url_for('main.chat', user_id=user.id) }}" class="btn btn-primary btn-large">
+                        <i class="fas fa-comment"></i> Message
+                    </a>
+                {% elif has_liked %}
+                    <button class="btn btn-secondary btn-large" disabled>
+                        <i class="fas fa-check"></i> Liked
+                    </button>
+                {% else %}
+                    <button class="btn btn-primary btn-large" onclick="likeUser('{{ user.id }}')">
+                        <i class="fas fa-heart"></i> Like
+                    </button>
+                {% endif %}
+                
+                <a href="{{ url_for('main.discover') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="view-profile-details">
+        {% if user.profile.bio %}
+            <div class="detail-section">
+                <h3>About</h3>
+                <p>{{ user.profile.bio }}</p>
+            </div>
+        {% endif %}
+        
+        {% if user.profile.interests %}
+            <div class="detail-section">
+                <h3>Interests</h3>
+                <div class="interests-tags">
+                    {% for interest in user.profile.interests|fromjson %}
+                        <span class="tag">{{ interest }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Match Modal -->
+<div id="matchModal" class="modal">
+    <div class="modal-content match-modal">
+        <div class="match-animation">
+            <i class="fas fa-heart"></i>
+        </div>
+        <h2>It's a Match!</h2>
+        <p>You and {{ user.profile.name }} liked each other!</p>
+        <div class="match-actions">
+            <a href="{{ url_for('main.chat', user_id=user.id) }}" class="btn btn-primary">Send Message</a>
+            <a href="{{ url_for('main.discover') }}" class="btn btn-secondary">Keep Swiping</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function likeUser(userId) {
+    fetch(`/like/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.is_match) {
+                document.getElementById('matchModal').style.display = 'flex';
+            } else {
+                location.reload();
+            }
+        }
+    });
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('matchModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
