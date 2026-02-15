@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.utils import secure_filename
 from datetime import datetime
 import json
 import os
@@ -9,8 +10,16 @@ from app.models import User, Profile, Like, Match, Message
 
 main = Blueprint('main', __name__)
 
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# ================= HOME =================
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# =====================================================
+# HOME
+# =====================================================
 
 @main.route('/')
 def index():
@@ -19,12 +28,14 @@ def index():
     return render_template('index.html')
 
 
-# ================= AUTH =================
+# =====================================================
+# AUTH
+# =====================================================
 
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
+        email = request.form.get("email").lower().strip()
         password = request.form.get("password")
 
         user = User.query.filter_by(email=email).first()
@@ -41,7 +52,7 @@ def login():
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
+        email = request.form.get("email").lower().strip()
         password = request.form.get("password")
 
         if User.query.filter_by(email=email).first():
@@ -67,61 +78,33 @@ def logout():
     return redirect(url_for('main.index'))
 
 
-# ================= PROFILE =================
-
-@main.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html', user=current_user)
-
-
-@main.route('/profile/edit', methods=['GET', 'POST'])
-@login_required
-def edit_profile():
-    profile = current_user.profile
-
-    if request.method == 'POST':
-        if not profile:
-            profile = Profile(user_id=current_user.id)
-            db.session.add(profile)
-
-        profile.name = request.form.get('name')
-        profile.age = request.form.get('age', type=int)
-        profile.bio = request.form.get('bio')
-
-        db.session.commit()
-        return redirect(url_for('main.profile'))
-
-    return render_template('edit_profile.html', profile=profile)
-
-
-# ================= DISCOVER =================
+# =====================================================
+# DISCOVER
+# =====================================================
 
 @main.route('/discover')
 @login_required
 def discover():
-
     users = User.query.join(Profile).filter(
         User.id != current_user.id
     ).all()
 
+    liked_ids = [l.liked_id for l in Like.query.filter_by(liker_id=current_user.id).all()]
+    users = [u for u in users if u.id not in liked_ids]
+
     return render_template('discover.html', users=users)
 
 
-# ================= VIEW USER =================
+# =====================================================
+# LIKE
+# =====================================================
 
-@main.route('/user/<user_id>')
-@login_required
-def view_user(user_id):
-    user = User.query.get_or_404(user_id)
-    return render_template('view_user.html', user=user)
-
-
-# ================= LIKE =================
-
-@main.route('/like/<user_id>', methods=['POST'])
+@main.route('/like/<int:user_id>', methods=['POST'])
 @login_required
 def like_user(user_id):
+
+    if user_id == current_user.id:
+        return jsonify({'error': 'Cannot like yourself'}), 400
 
     if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
         return jsonify({'error': 'Already liked'}), 400
@@ -136,11 +119,12 @@ def like_user(user_id):
     is_match = False
 
     if liked_back:
-        db.session.add(Match(
+        new_match = Match(
             user1_id=current_user.id,
             user2_id=user_id,
             matched_at=datetime.utcnow()
-        ))
+        )
+        db.session.add(new_match)
         is_match = True
 
     db.session.commit()
@@ -148,7 +132,9 @@ def like_user(user_id):
     return jsonify({"success": True, "is_match": is_match})
 
 
-# ================= MATCHES =================
+# =====================================================
+# MATCHES
+# =====================================================
 
 @main.route('/matches')
 @login_required
@@ -162,18 +148,45 @@ def matches():
     return render_template('matches.html', matches=matches)
 
 
-# ================= CHAT =================
+# =====================================================
+# CHAT (🔥 THIS WAS MISSING PROPERLY)
+# =====================================================
 
-@main.route('/chat/<user_id>')
+@main.route('/chat/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def chat(user_id):
 
-    other_user = User.query.get_or_404(user_id)
+    match = Match.query.filter(
+        ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
+        ((Match.user1_id == user_id) & (Match.user2_id == current_user.id))
+    ).first()
+
+    if not match:
+        flash("You can only chat with matched users.", "error")
+        return redirect(url_for('main.matches'))
+
+    if request.method == "POST":
+        content = request.form.get("message").strip()
+
+        if content:
+            new_message = Message(
+                sender_id=current_user.id,
+                receiver_id=user_id,
+                content=content,
+                created_at=datetime.utcnow(),
+                is_read=False
+            )
+            db.session.add(new_message)
+            db.session.commit()
+
+        return redirect(url_for('main.chat', user_id=user_id))
 
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
         ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
     ).order_by(Message.created_at.asc()).all()
+
+    other_user = User.query.get(user_id)
 
     return render_template(
         'chat.html',
@@ -182,15 +195,9 @@ def chat(user_id):
     )
 
 
-# ================= CONVERSATIONS =================
-
-@main.route('/messages')
-@login_required
-def messages():
-    return render_template('conversations.html')
-
-
-# ================= UNREAD COUNT =================
+# =====================================================
+# UNREAD COUNT
+# =====================================================
 
 @main.route('/messages/unread-count')
 @login_required
