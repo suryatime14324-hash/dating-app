@@ -13,6 +13,10 @@ main = Blueprint('main', __name__)
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 
+# =====================================================
+# HELPERS
+# =====================================================
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -79,20 +83,116 @@ def logout():
 
 
 # =====================================================
+# PROFILE
+# =====================================================
+
+@main.route('/profile')
+@login_required
+def profile():
+    interests = []
+    if current_user.profile and current_user.profile.interests:
+        try:
+            interests = json.loads(current_user.profile.interests)
+        except:
+            interests = []
+
+    return render_template('profile.html', user=current_user, interests=interests)
+
+
+@main.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+
+    profile = current_user.profile
+
+    if request.method == 'POST':
+
+        if not profile:
+            profile = Profile(user_id=current_user.id)
+            db.session.add(profile)
+
+        profile.name = request.form.get('name')
+        profile.age = request.form.get('age', type=int)
+        profile.gender = request.form.get('gender')
+        profile.looking_for = request.form.get('looking_for')
+        profile.bio = request.form.get('bio')
+        profile.occupation = request.form.get('occupation')
+        profile.city = request.form.get('city')
+
+        interests = request.form.getlist('interests')
+        profile.interests = json.dumps(interests)
+
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        for field in ['photo1', 'photo2', 'photo3']:
+            file = request.files.get(field)
+            if file and file.filename and allowed_file(file.filename):
+                filename = secure_filename(f"{current_user.id}_{field}_{file.filename}")
+                file.save(os.path.join(upload_folder, filename))
+                setattr(profile, field, f"/static/uploads/{filename}")
+
+        db.session.commit()
+        return redirect(url_for('main.profile'))
+
+    return render_template('edit_profile.html', profile=profile)
+
+
+# =====================================================
 # DISCOVER
 # =====================================================
 
 @main.route('/discover')
 @login_required
 def discover():
+
     users = User.query.join(Profile).filter(
         User.id != current_user.id
     ).all()
 
-    liked_ids = [l.liked_id for l in Like.query.filter_by(liker_id=current_user.id).all()]
+    # remove already liked users
+    liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
     users = [u for u in users if u.id not in liked_ids]
 
     return render_template('discover.html', users=users)
+
+
+# =====================================================
+# VIEW USER
+# =====================================================
+
+@main.route('/user/<int:user_id>')
+@login_required
+def view_user(user_id):
+
+    user = User.query.get_or_404(user_id)
+
+    interests = []
+    if user.profile and user.profile.interests:
+        try:
+            interests = json.loads(user.profile.interests)
+        except:
+            interests = []
+
+    liked_back = Like.query.filter_by(
+        liker_id=user_id,
+        liked_id=current_user.id
+    ).first()
+
+    has_liked = Like.query.filter_by(
+        liker_id=current_user.id,
+        liked_id=user_id
+    ).first()
+
+    is_match = bool(liked_back and has_liked)
+
+    return render_template(
+        'view_user.html',
+        user=user,
+        interests=interests,
+        is_match=is_match,
+        has_liked=bool(has_liked)
+    )
 
 
 # =====================================================
@@ -119,17 +219,30 @@ def like_user(user_id):
     is_match = False
 
     if liked_back:
-        new_match = Match(
+        match = Match(
             user1_id=current_user.id,
             user2_id=user_id,
             matched_at=datetime.utcnow()
         )
-        db.session.add(new_match)
+        db.session.add(match)
         is_match = True
 
     db.session.commit()
 
-    return jsonify({"success": True, "is_match": is_match})
+    return jsonify({
+        "success": True,
+        "is_match": is_match
+    })
+
+
+# =====================================================
+# PASS
+# =====================================================
+
+@main.route('/pass/<int:user_id>', methods=['POST'])
+@login_required
+def pass_user(user_id):
+    return jsonify({"success": True})
 
 
 # =====================================================
@@ -149,59 +262,113 @@ def matches():
 
 
 # =====================================================
-# CHAT (🔥 THIS WAS MISSING PROPERLY)
+# CHAT PAGE
 # =====================================================
 
-@main.route('/chat/<int:user_id>', methods=['GET', 'POST'])
+@main.route('/chat/<int:user_id>')
 @login_required
 def chat(user_id):
 
+    other_user = User.query.get_or_404(user_id)
+
+    # ensure they are matched
     match = Match.query.filter(
         ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
         ((Match.user1_id == user_id) & (Match.user2_id == current_user.id))
     ).first()
 
     if not match:
-        flash("You can only chat with matched users.", "error")
+        flash("You are not matched with this user.", "error")
         return redirect(url_for('main.matches'))
-
-    if request.method == "POST":
-        content = request.form.get("message").strip()
-
-        if content:
-            new_message = Message(
-                sender_id=current_user.id,
-                receiver_id=user_id,
-                content=content,
-                created_at=datetime.utcnow(),
-                is_read=False
-            )
-            db.session.add(new_message)
-            db.session.commit()
-
-        return redirect(url_for('main.chat', user_id=user_id))
 
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
         ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.created_at.asc()).all()
+    ).order_by(Message.timestamp.asc()).all()
 
-    other_user = User.query.get(user_id)
+    # mark received messages as read
+    for msg in messages:
+        if msg.receiver_id == current_user.id and not msg.is_read:
+            msg.is_read = True
 
-    return render_template(
-        'chat.html',
-        messages=messages,
-        other_user=other_user
-    )
+    db.session.commit()
+
+    return render_template('chat.html', other_user=other_user, messages=messages)
 
 
 # =====================================================
-# UNREAD COUNT
+# SEND MESSAGE
+# =====================================================
+
+@main.route('/send-message/<int:user_id>', methods=['POST'])
+@login_required
+def send_message(user_id):
+
+    content = request.form.get("message")
+
+    if not content:
+        return redirect(url_for('main.chat', user_id=user_id))
+
+    message = Message(
+        sender_id=current_user.id,
+        receiver_id=user_id,
+        content=content,
+        timestamp=datetime.utcnow(),
+        is_read=False
+    )
+
+    db.session.add(message)
+    db.session.commit()
+
+    return redirect(url_for('main.chat', user_id=user_id))
+
+
+# =====================================================
+# CONVERSATIONS LIST
+# =====================================================
+
+@main.route('/messages')
+@login_required
+def messages():
+
+    matches = Match.query.filter(
+        (Match.user1_id == current_user.id) |
+        (Match.user2_id == current_user.id)
+    ).all()
+
+    conversations = []
+
+    for match in matches:
+        other_user = match.get_other_user(current_user.id)
+
+        last_message = Message.query.filter(
+            ((Message.sender_id == current_user.id) & (Message.receiver_id == other_user.id)) |
+            ((Message.sender_id == other_user.id) & (Message.receiver_id == current_user.id))
+        ).order_by(Message.timestamp.desc()).first()
+
+        unread_count = Message.query.filter_by(
+            sender_id=other_user.id,
+            receiver_id=current_user.id,
+            is_read=False
+        ).count()
+
+        conversations.append({
+            "user": other_user,
+            "last_message": last_message,
+            "unread_count": unread_count
+        })
+
+    return render_template("conversations.html", conversations=conversations)
+
+
+# =====================================================
+# UNREAD COUNT API
 # =====================================================
 
 @main.route('/messages/unread-count')
 @login_required
 def unread_count():
+
     count = Message.query.filter_by(
         receiver_id=current_user.id,
         is_read=False
