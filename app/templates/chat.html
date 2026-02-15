@@ -1,30 +1,51 @@
 {% extends "base.html" %}
 
+{% block title %}Chat{% endblock %}
+
 {% block content %}
 <div class="chat-container">
 
+    <!-- HEADER -->
     <div class="chat-header">
+        <a href="{{ url_for('main.matches') }}" class="back-btn">
+            ← Back
+        </a>
         <h2>{{ other_user.profile.name }}</h2>
     </div>
 
-    <div class="chat-messages">
-        {% for message in messages %}
-            <div class="message {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}">
-                <div class="message-content">
-                    {{ message.content }}
+    <!-- MESSAGES -->
+    <div class="chat-messages" id="chatMessages">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}">
+                    <div class="message-content">
+                        {{ message.content }}
+                    </div>
+                    <div class="message-time">
+                        {{ message.created_at.strftime('%H:%M') }}
+                    </div>
                 </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-chat">
+                <p>Start the conversation 👋</p>
             </div>
-        {% endfor %}
+        {% endif %}
     </div>
 
+    <!-- INPUT -->
     <div class="chat-input-container">
-        <form class="chat-form" method="POST">
+        <form class="chat-form"
+              method="POST"
+              action="{{ url_for('main.send_message', user_id=other_user.id) }}">
+              
             <input type="text"
                    id="messageInput"
                    name="message"
                    placeholder="Type a message..."
                    autocomplete="off"
                    required>
+
             <button type="submit" class="send-btn">
                 <i class="fas fa-paper-plane"></i>
             </button>
@@ -32,4 +53,24 @@
     </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+// Auto scroll to bottom
+document.addEventListener("DOMContentLoaded", function() {
+    const chatBox = document.getElementById("chatMessages");
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// Clear leave-site warning after send
+const form = document.querySelector(".chat-form");
+if (form) {
+    form.addEventListener("submit", function() {
+        hasUnsentMessage = false;
+    });
+}
+
+</script>
 {% endblock %}
