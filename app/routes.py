@@ -150,7 +150,6 @@ def discover():
         User.id != current_user.id
     ).all()
 
-    # remove already liked users
     liked_ids = [like.liked_id for like in Like.query.filter_by(liker_id=current_user.id).all()]
     users = [u for u in users if u.id not in liked_ids]
 
@@ -158,21 +157,14 @@ def discover():
 
 
 # =====================================================
-# VIEW USER
+# VIEW USER  (FIXED UUID ROUTE)
 # =====================================================
 
-@main.route('/user/<int:user_id>')
+@main.route('/user/<user_id>')
 @login_required
 def view_user(user_id):
 
     user = User.query.get_or_404(user_id)
-
-    interests = []
-    if user.profile and user.profile.interests:
-        try:
-            interests = json.loads(user.profile.interests)
-        except:
-            interests = []
 
     liked_back = Like.query.filter_by(
         liker_id=user_id,
@@ -189,24 +181,28 @@ def view_user(user_id):
     return render_template(
         'view_user.html',
         user=user,
-        interests=interests,
         is_match=is_match,
         has_liked=bool(has_liked)
     )
 
 
 # =====================================================
-# LIKE
+# LIKE  (FIXED MATCH LOGIC)
 # =====================================================
 
-@main.route('/like/<int:user_id>', methods=['POST'])
+@main.route('/like/<user_id>', methods=['POST'])
 @login_required
 def like_user(user_id):
 
     if user_id == current_user.id:
         return jsonify({'error': 'Cannot like yourself'}), 400
 
-    if Like.query.filter_by(liker_id=current_user.id, liked_id=user_id).first():
+    existing_like = Like.query.filter_by(
+        liker_id=current_user.id,
+        liked_id=user_id
+    ).first()
+
+    if existing_like:
         return jsonify({'error': 'Already liked'}), 400
 
     db.session.add(Like(liker_id=current_user.id, liked_id=user_id))
@@ -222,6 +218,7 @@ def like_user(user_id):
         match = Match(
             user1_id=current_user.id,
             user2_id=user_id,
+            is_match=True,
             matched_at=datetime.utcnow()
         )
         db.session.add(match)
@@ -239,7 +236,7 @@ def like_user(user_id):
 # PASS
 # =====================================================
 
-@main.route('/pass/<int:user_id>', methods=['POST'])
+@main.route('/pass/<user_id>', methods=['POST'])
 @login_required
 def pass_user(user_id):
     return jsonify({"success": True})
@@ -254,28 +251,28 @@ def pass_user(user_id):
 def matches():
 
     matches = Match.query.filter(
-        (Match.user1_id == current_user.id) |
-        (Match.user2_id == current_user.id)
+        ((Match.user1_id == current_user.id) |
+         (Match.user2_id == current_user.id)) &
+        (Match.is_match == True)
     ).all()
 
     return render_template('matches.html', matches=matches)
 
 
 # =====================================================
-# CHAT PAGE
+# CHAT PAGE  (FIXED UUID + created_at)
 # =====================================================
 
-@main.route('/chat/<int:user_id>')
+@main.route('/chat/<user_id>')
 @login_required
 def chat(user_id):
 
     other_user = User.query.get_or_404(user_id)
 
-    # ensure they are matched
     match = Match.query.filter(
         ((Match.user1_id == current_user.id) & (Match.user2_id == user_id)) |
         ((Match.user1_id == user_id) & (Match.user2_id == current_user.id))
-    ).first()
+    ).filter(Match.is_match == True).first()
 
     if not match:
         flash("You are not matched with this user.", "error")
@@ -284,12 +281,12 @@ def chat(user_id):
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
         ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.timestamp.asc()).all()
+    ).order_by(Message.created_at.asc()).all()
 
-    # mark received messages as read
     for msg in messages:
         if msg.receiver_id == current_user.id and not msg.is_read:
             msg.is_read = True
+            msg.read_at = datetime.utcnow()
 
     db.session.commit()
 
@@ -297,10 +294,10 @@ def chat(user_id):
 
 
 # =====================================================
-# SEND MESSAGE
+# SEND MESSAGE  (FIXED created_at)
 # =====================================================
 
-@main.route('/send-message/<int:user_id>', methods=['POST'])
+@main.route('/send-message/<user_id>', methods=['POST'])
 @login_required
 def send_message(user_id):
 
@@ -313,7 +310,7 @@ def send_message(user_id):
         sender_id=current_user.id,
         receiver_id=user_id,
         content=content,
-        timestamp=datetime.utcnow(),
+        created_at=datetime.utcnow(),
         is_read=False
     )
 
@@ -324,7 +321,7 @@ def send_message(user_id):
 
 
 # =====================================================
-# CONVERSATIONS LIST
+# CONVERSATIONS
 # =====================================================
 
 @main.route('/messages')
@@ -332,8 +329,9 @@ def send_message(user_id):
 def messages():
 
     matches = Match.query.filter(
-        (Match.user1_id == current_user.id) |
-        (Match.user2_id == current_user.id)
+        ((Match.user1_id == current_user.id) |
+         (Match.user2_id == current_user.id)) &
+        (Match.is_match == True)
     ).all()
 
     conversations = []
@@ -344,7 +342,7 @@ def messages():
         last_message = Message.query.filter(
             ((Message.sender_id == current_user.id) & (Message.receiver_id == other_user.id)) |
             ((Message.sender_id == other_user.id) & (Message.receiver_id == current_user.id))
-        ).order_by(Message.timestamp.desc()).first()
+        ).order_by(Message.created_at.desc()).first()
 
         unread_count = Message.query.filter_by(
             sender_id=other_user.id,
@@ -362,7 +360,7 @@ def messages():
 
 
 # =====================================================
-# UNREAD COUNT API
+# UNREAD COUNT
 # =====================================================
 
 @main.route('/messages/unread-count')
